@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="csssheet.css">
+    <title>My first Vue app</title>
+    <script src="https://unpkg.com/vue"></script>
+  </head>
+<body>
+<div id="container">
+	<div class="outterblock block1">
+		<div class="innerblock" id="availList">
+			<select v-model="currency" v-if="seen">
+			  <template v-for="currency in currencyList">
+				<option :value="currency">{{currency.charCode}} : {{currency.name}}</option>
+			  </template>
+			</select>
+		</div>	
+	
+		<div class="innerblock" id="addBtn">
+		  <button v-on:click="addToWatchList" v-if="seen">
+			<span class="sp1">
+				<span>Добавить в отслеживание</span>
+			</span>
+		  </button>
+		</div>	
+	</div>
+	<div class="outterblock block2">
+		<div class="innerblock" id="refreshBtn">
+		  <button v-on:click="refreshList">
+			<span class="sp1">
+				<span>Обновить котировки</span>
+			</span>
+		  </button>
+		</div>	
+		<div id="trackedList" class="innerblock"> 	  			
+			<template v-for="currency in trackedList">			
+				<div class="divrow">
+					<div class="divcell1"><div>{{currency.charCode}}</div></div><div class="divcell2"><div>{{currency.name}}</div></div><div class="divcell3"><div>{{currency.value}}</div></div><div class="divcell4">
+						<button v-on:click="removeFromWatchList(currency.charCode)">
+							<span class="sp1">
+								<span>Удалить</span>
+							</span>
+						</button>
+					</div>
+				</div>  
+			</template>	  
+	</div>
+</div>
+
+<script>
+//Получить из кэша список доступных валют
+var functionGetAvailable = async function() {
+		await fetch('http://localhost:5005/api/availablecurrency')
+		.then((response) => 
+		{
+			if(response.ok) 
+			{
+				return response.json();
+			}
+			throw new Error('Network response was not ok');
+		})
+		.then((json) => 
+		{
+			curList.currencyList = json
+			curList.currency = curList.currencyList[0]
+			addBtn.seen = curList.currency !== undefined
+			curList.seen = addBtn.seen
+		});	
+}
+//Получить из базы список доступных валют
+var functionGetAvailableDB = async function() {
+		await fetch('http://localhost:5005/api/availablecurrency/true')
+			.then((response) => 
+			{
+				if(response.ok) 
+				{
+					return response.json();
+				}
+				throw new Error('Network response was not ok');
+			})
+			.then((json) => 
+			{
+				curList.currencyList = json
+				curList.currency = curList.currencyList[0]							
+			});	
+}
+
+var functionDeleteAvailable = async function() {
+	await fetch("http://localhost:5005/api/AvailableCurrency/"+curList.currency.charCode,
+			{
+				method: 'DELETE', 
+			})
+			.then((response) => 
+			{
+				if(response.ok) 
+				{
+					return response.json();
+				}
+				throw new Error('Network response was not ok');
+			})
+			.then((json) => 
+			{
+				curList.currencyList = json
+				curList.currency = curList.currencyList[0]
+				addBtn.seen = curList.currency !== undefined
+				curList.seen = addBtn.seen
+			});	
+}
+
+//Получить из кэша список отслеживаемых
+var functionGetTracked = async function() {
+	await fetch('http://localhost:5005/api/TrackedCurrency')
+		.then((response) => 
+		{
+			if(response.ok) 
+			{
+				return response.json();
+			}
+			throw new Error('Network response was not ok');
+		})
+		.then((json) => 
+		{
+			trackedList.trackedList = json
+		});
+} 
+
+var functionGetTrackedDB = async function() {
+	await fetch('http://localhost:5005/api/TrackedCurrency/true')
+		.then((response) => 
+		{
+			if(response.ok) 
+			{
+				return response.json();
+			}
+			throw new Error('Network response was not ok');
+		})
+		.then((json) => 
+		{
+			trackedList.trackedList = json
+		});
+} 
+
+//Удалить из отслеживаемых
+var functionDeleteTracked = async function(chCode) {
+	await fetch("http://localhost:5005/api/TrackedCurrency/"+chCode,
+			{
+				method: 'DELETE',
+			})
+			.then((response) => 
+			{
+				if(response.ok) 
+				{
+					return response.json();
+				}
+				throw new Error('Network response was not ok');
+			})
+			.then((json) => 
+			{
+				trackedList.trackedList = json	
+			});	
+			
+			curList.seen = true
+			addBtn.seen = true
+}
+
+var functionPostTracked = async function() {
+	await fetch("http://localhost:5005/api/TrackedCurrency", 
+			{
+				method: 'POST', 
+				headers: {
+				  'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(curList.currency)
+			}).then((response) => 
+			{
+				if(response.ok) 
+				{
+					return response.json();
+				}
+				throw new Error('Network response was not ok');
+			})
+			.then((json) => 
+			{
+				trackedList.trackedList = json
+			});	
+}
+
+//--------------------------------------------------------------------------
+
+//Список доступных валют для добавления в отслеживание
+var curList = new Vue(
+{
+	el: '#availList',
+	data: 
+	{
+		currency: null, 
+		currencyList: null,
+		seen : true
+	},
+	//при рефреше странички получим списсок доступных
+	async created() 
+	{
+		await functionGetAvailable()	
+	}
+});
+
+//---------------------------------------------------------------------------
+
+//Список отслеживаемых
+var trackedList = new Vue(
+{
+	el: '#trackedList',
+	data: 
+	{
+		currency: null, 
+		trackedList: null
+	},
+	methods: 
+	{
+		//Удаляем из отслеживаемых
+		removeFromWatchList: async function(chCode) 
+		{		
+			await functionDeleteTracked(chCode)					
+			await functionGetAvailableDB()
+		}
+	},
+	//при рефреше странички получим список отслеживамых
+	async created() 
+	{
+		await functionGetTracked()		
+	}
+});
+
+//Добавить в отслеживание
+var addBtn = new Vue(
+{
+	el: '#addBtn',
+	data :
+	{
+		seen : true
+	},
+	methods: 
+	{
+		addToWatchList: async function() 
+		{
+			await functionPostTracked()
+			await functionDeleteAvailable()
+		}
+	}
+});
+
+//Добавить в отслеживание
+var refreshBtn = new Vue(
+{
+	el: '#refreshBtn',
+	methods: 
+	{
+		refreshList: async function() 
+		{
+			await fetch("http://localhost:5005/api/RefreshCurrency")				
+			await functionGetTrackedDB()
+		}
+	}
+});
+</script> 
+</body>
+</html>
